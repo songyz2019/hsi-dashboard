@@ -1,0 +1,5 @@
+.js-plotly-plot .select-outline {
+    stroke: #ff0000 !important;   /* 边框颜色 */
+    stroke-width: 2 !important;
+    z-index: 1000 !important; /* 确保边框在最上层 */
+}
