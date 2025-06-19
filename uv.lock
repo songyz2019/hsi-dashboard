@@ -187,6 +187,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pillow" },
     { name = "plotly" },
+    { name = "rasterio" },
     { name = "rs-fusion-datasets" },
     { name = "scipy" },
 ]
@@ -200,6 +201,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.3.0" },
     { name = "pillow", specifier = ">=11.2.1" },
     { name = "plotly", specifier = ">=6.1.2" },
+    { name = "rasterio", specifier = ">=1.4.3" },
     { name = "rs-fusion-datasets", specifier = ">=0.15.5" },
     { name = "scipy", specifier = ">=1.15.3" },
 ]

@@ -1,4 +1,6 @@
 from itertools import product
+from pathlib import Path
+from typing import List
 import dash
 from dash import dcc, html, Input, Output
 import plotly.graph_objs as go
@@ -11,17 +13,20 @@ from dash import callback_context
 from scipy.io import savemat
 from flask import send_file, Flask
 import webbrowser
+import rasterio
+import shutil
 
 state_hsi :Float[np.ndarray, 'H W C'] = None
 state_rgb :UInt8[np.ndarray, 'H W 3'] = None
 state_selected_area = [0,0,0,0]
 state_hold_spectral = False
 state_line_color = "auto"
+state_chw_or_hwc_input = "CHW"
 spec_fig = go.Figure()
 
 server = Flask(__name__)
 @server.route("/download-mat")
-def download_mat():
+def save_mat():
     global state_hsi, state_selected_area
     if state_hsi is None:
         return "No data to download", 400
@@ -30,14 +35,8 @@ def download_mat():
     selected_data = state_hsi[y0:y1+1, x0:x1+1, :]
     selected_data = selected_data.transpose(2, 0, 1)
     savemat("./tmp/selected_area.mat", {"data": selected_data.astype('float32')}, do_compression=True)
-    
     return send_file("./tmp/selected_area.mat", as_attachment=True, download_name="selected_area.mat")
 
-def init():
-    global state_hsi, state_rgb
-    hsi, dsm, lbl, info = fetch_trento()
-    state_hsi = hsi.transpose(1,2,0)
-    state_rgb = hsi2rgb(state_hsi, wavelength=info["wavelength"], input_format='HWC', output_format='HWC', to_u8np=True)
 
 def create_image_figure(rgb :UInt8[np.ndarray, 'H W 3']):
     fig = go.Figure()
@@ -64,22 +63,36 @@ def create_image_figure(rgb :UInt8[np.ndarray, 'H W 3']):
 app = dash.Dash(__name__, server=server)
 du.configure_upload(app, "./uploads", use_upload_id=True)
 app.layout = html.Div([
+    html.H1("HSI Dashboard"),
     du.Upload(
         id="upload-img",
-        filetypes=["mat",],
+        # filetypes=["mat","","hdr","tif", "tiff"],
+        max_files=2,
+        max_file_size=1024**4,
+        max_total_size= 1024**4,
+        chunk_size=1024**2*64
+    ),
+
+    html.Label("Input Data Format"),
+    dcc.Dropdown(
+        id="hwc-or-chw-dropdown",
+        options=[
+            {"label": "HWC (Height, Width, Channel)", "value": "HWC"},
+            {"label": "CHW (Channel, Height, Width)", "value": "CHW"},
+        ],
+        value=state_chw_or_hwc_input,
     ),
 
     dcc.Graph(
         id="image-graph",
         figure=None,
-        style={"width": "1000px"}
+        style={"width": "1000px", "height": "800px"}
     ),
     
     dcc.Checklist(
         id="hold-spectral-checkbox",
         options=[{"label": "Hold Spectral", "value": "hold"}],
         value=[],
-        style={"margin": "10px"}
     ),
 
     dcc.Dropdown(
@@ -120,13 +133,34 @@ app.layout = html.Div([
     Output("image-graph", "figure"),
     id="upload-img",
 )
-def update_image_graph(status: du.UploadStatus):
+def update_hsi(status: du.UploadStatus):
+    global state_hsi, state_rgb
     if status is None:
         pass
     if not status.is_completed:
         return None
-    global state_hsi, state_rgb
-    state_hsi = load_one_key_mat(status.latest_file)
+    
+    files :List[Path] = status.uploaded_files[::-1]
+
+    # If is .mat, load with load_one_key_mat
+    match status.latest_file.suffix.lower():
+        case ".mat":
+            state_hsi = load_one_key_mat(files[-1])
+        case ".hdr" | "":
+            hdr_file = [f for f in files if f.suffix.lower() == ".hdr"][0]
+            raw_file = [f for f in files if f.suffix == ''][0]
+            if not (raw_file.parent == hdr_file.parent and raw_file.stem == hdr_file.stem):
+                shutil.copy(hdr_file, raw_file.parent / f"{raw_file.stem}.hdr")
+            with rasterio.open(raw_file) as f:
+                state_hsi = f.read()
+        case ".tif" | ".tiff":
+            with rasterio.open(files[-1]) as f:
+                state_hsi = f.read()
+        case _:
+            raise ValueError("Unsupported file type: {}".format(files[-1].suffix))
+    
+    if state_chw_or_hwc_input == "CHW":
+        state_hsi = state_hsi.transpose(1, 2, 0)
     state_rgb = hsi2rgb(state_hsi, wavelength_range=(400, 1000),input_format='HWC', output_format='HWC', to_u8np=True)
     return create_image_figure(state_rgb)
 
@@ -138,7 +172,7 @@ def update_image_graph(status: du.UploadStatus):
         Input("image-graph", "selectedData")
     ]
 )
-def display_selection_info(clickData, selectedData):
+def update_selected_spec(clickData, selectedData):
     if selectedData is not None and "range" in selectedData and selectedData["range"]:
         xrange = selectedData["range"]["x"]
         yrange = selectedData["range"]["y"]
@@ -188,31 +222,37 @@ def display_selection_info(clickData, selectedData):
     state_selected_area = [x0, x1, y0, y1]
     return fig
 
-# checkbox
 @app.callback(
     Input("hold-spectral-checkbox", "value")
 )
-def hold_spectral_checkbox(value):
+def update_hold_spectral(value):
     global state_hold_spectral, state_rgb, spec_fig
     if "hold" in value:
         state_hold_spectral = True
     else:
         state_hold_spectral = False
 
-#line color
 @app.callback(
     Output("line-color", "value"),
     Input("line-color", "value")
 )
 def update_line_color(line_color):
-    print(f"Updating line color to: {line_color}")
     global state_line_color, spec_fig
     state_line_color = line_color
     return line_color
 
+@app.callback(
+    Output("hwc-or-chw-dropdown", "value"),
+    Input("hwc-or-chw-dropdown", "value")
+)
+def update_hwc_or_chw(value):
+    global state_hsi, state_rgb, state_chw_or_hwc_input
+    state_chw_or_hwc_input = value
+    return value
+
 if __name__ == "__main__":
     # init()
-    webbrowser.open("http://127.0.0.1:8050")
+    # webbrowser.open("http://127.0.0.1:8050")
     app.run(debug=True)
 
 
