@@ -1,4 +1,5 @@
 from itertools import product
+import os
 from pathlib import Path
 from typing import List
 import dash
@@ -15,6 +16,7 @@ from flask import send_file, Flask
 import webbrowser
 import rasterio
 import shutil
+import einops
 
 state_hsi :Float[np.ndarray, 'H W C'] = None
 state_rgb :UInt8[np.ndarray, 'H W 3'] = None
@@ -22,11 +24,12 @@ state_selected_area = [0,0,0,0]
 state_hold_spectral = False
 state_line_color = "auto"
 state_chw_or_hwc_input = "CHW"
+state_select_locations = []
 spec_fig = go.Figure()
 
 server = Flask(__name__)
 @server.route("/download-mat")
-def save_mat():
+def save_area_mat():
     global state_hsi, state_selected_area
     if state_hsi is None:
         return "No data to download", 400
@@ -34,9 +37,18 @@ def save_mat():
     x0, x1, y0, y1 = state_selected_area
     selected_data = state_hsi[y0:y1+1, x0:x1+1, :]
     selected_data = selected_data.transpose(2, 0, 1)
+    os.makedirs("./tmp", exist_ok=True)
     savemat("./tmp/selected_area.mat", {"data": selected_data.astype('float32')}, do_compression=True)
     return send_file("./tmp/selected_area.mat", as_attachment=True, download_name="selected_area.mat")
 
+@server.route("/download-spectrals")
+def save_spectral_mat():
+    global state_select_locations, state_hsi
+    result = [ state_hsi[i, j, :] for i,j in state_select_locations ]
+    result = np.stack(result, axis=0)
+    os.makedirs("./tmp", exist_ok=True)
+    savemat("./tmp/selected_spec.mat", {"data": result.astype('float32')})
+    return send_file("./tmp/selected_spec.mat", as_attachment=True, download_name="selected_spec.mat")
 
 def create_image_figure(rgb :UInt8[np.ndarray, 'H W 3']):
     fig = go.Figure()
@@ -125,6 +137,11 @@ app.layout = html.Div([
     html.A(
         "Download Selected Area",
         href="/download-mat",
+    ),
+    html.Br(),
+    html.A(
+        "Download Selected Spectrals",
+        href="/download-spectrals",
     )
 ])
 
@@ -145,7 +162,7 @@ def update_hsi(status: du.UploadStatus):
     # If is .mat, load with load_one_key_mat
     match status.latest_file.suffix.lower():
         case ".mat":
-            state_hsi = load_one_key_mat(files[-1])
+            state_hsi = load_one_key_mat(status.latest_file)
         case ".hdr" | "":
             hdr_file = [f for f in files if f.suffix.lower() == ".hdr"][0]
             raw_file = [f for f in files if f.suffix == ''][0]
@@ -193,10 +210,11 @@ def update_selected_spec(clickData, selectedData):
     else:
         _, _, n_channel = state_hsi.shape
 
-    global state_hold_spectral, state_rgb, spec_fig, state_line_color
+    global state_hold_spectral, state_rgb, spec_fig, state_line_color, state_select_locations
     fig = spec_fig
     if not state_hold_spectral:
         fig.data = [] 
+        state_select_locations = []
     x = np.arange(n_channel)
     step_x = max(1, (x1 - x0) // 15) # 控制 曲线的数量
     step_y = max(1, (y1 - y0) // 15)
@@ -212,6 +230,7 @@ def update_selected_spec(clickData, selectedData):
             showlegend=False,
             )
         )
+        state_select_locations.append([j, i])
     fig.update_layout(
         title="Spectral Data (15*15 samples)" if step_x > 1 or step_y > 1 else "Spectral Data",
         xaxis_title="Wavelength Channel Index",

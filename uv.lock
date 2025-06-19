@@ -160,6 +160,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a4/92/cc10b2e1c9b214dcce90436464b4c209031e9ef0a2a37e7c32500cededc2/dash_uploader-0.7.0a2.tar.gz", hash = "sha256:9842578cb4ded0c414ae5a9aa5961a9a32ceef217a57df95712a87490c28b76e", size = 81701, upload-time = "2024-10-09T19:50:46.195Z" }
 
 [[package]]
+name = "einops"
+version = "0.8.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/81/df4fbe24dff8ba3934af99044188e20a98ed441ad17a274539b74e82e126/einops-0.8.1.tar.gz", hash = "sha256:de5d960a7a761225532e0f1959e5315ebeafc0cd43394732f103ca44b9837e84", size = 54805, upload-time = "2025-02-09T03:17:00.434Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/87/62/9773de14fe6c45c23649e98b83231fffd7b9892b6cf863251dc2afa73643/einops-0.8.1-py3-none-any.whl", hash = "sha256:919387eb55330f5757c6bea9165c5ff5cfe63a642682ea788a6d472576d81737", size = 64359, upload-time = "2025-02-09T03:17:01.998Z" },
+]
+
+[[package]]
 name = "flask"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -184,6 +193,7 @@ dependencies = [
     { name = "dash-bootstrap-components" },
     { name = "dash-canvas" },
     { name = "dash-uploader" },
+    { name = "einops" },
     { name = "numpy" },
     { name = "pillow" },
     { name = "plotly" },
@@ -198,6 +208,7 @@ requires-dist = [
     { name = "dash-bootstrap-components", specifier = ">=2.0.3" },
     { name = "dash-canvas", specifier = ">=0.1.0" },
     { name = "dash-uploader", specifier = ">=0.7.0a2" },
+    { name = "einops", specifier = ">=0.8.1" },
     { name = "numpy", specifier = ">=2.3.0" },
     { name = "pillow", specifier = ">=11.2.1" },
     { name = "plotly", specifier = ">=6.1.2" },
