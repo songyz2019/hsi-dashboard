@@ -5,12 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "bokeh>=3.7.3",
     "dash>=3.0.4",
     "dash-bootstrap-components>=2.0.3",
     "dash-canvas>=0.1.0",
     "dash-uploader>=0.7.0a2",
     "einops>=0.8.1",
+    "holoviews>=1.20.2",
+    "hvplot>=0.11.3",
     "numpy>=2.3.0",
+    "panel>=1.7.1",
     "pillow>=11.2.1",
     "plotly>=6.1.2",
     "rasterio>=1.4.3",

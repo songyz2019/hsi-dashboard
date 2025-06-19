@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import List
 import dash
 from dash import dcc, html, Input, Output
+import dash_bootstrap_components as dbc
 import plotly.graph_objs as go
 import dash_uploader as du
 from rs_fusion_datasets.util.fileio import load_one_key_mat
-from rs_fusion_datasets import hsi2rgb, fetch_trento
+from rs_fusion_datasets import hsi2rgb
 import numpy as np
 from jaxtyping import Float, UInt8
 from dash import callback_context
@@ -81,68 +82,71 @@ app.layout = html.Div([
         # filetypes=["mat","","hdr","tif", "tiff"],
         max_files=2,
         max_file_size=1024**4,
-        max_total_size= 1024**4,
+        max_total_size=1024**4,
         chunk_size=1024**2*64
     ),
 
-    html.Label("Input Data Format"),
-    dcc.Dropdown(
-        id="hwc-or-chw-dropdown",
-        options=[
-            {"label": "HWC (Height, Width, Channel)", "value": "HWC"},
-            {"label": "CHW (Channel, Height, Width)", "value": "CHW"},
-        ],
-        value=state_chw_or_hwc_input,
-    ),
 
-    dcc.Graph(
-        id="image-graph",
-        figure=None,
-        style={"width": "1000px", "height": "800px"}
-    ),
+
+
+
+    dbc.Container([
+        dcc.Dropdown(
+            id="hwc-or-chw-dropdown",
+            options=[
+                {"label": "Input is HWC", "value": "HWC"},
+                {"label": "Input is CHW", "value": "CHW"},
+            ],
+            value=state_chw_or_hwc_input,
+            style={"width": "12em"}
+        ),
+
+        dcc.Dropdown(
+            id="line-color",
+            options=[
+                {"label": "Auto Line Color", "value": "auto"},
+                {"label": "Red", "value": "rgba(255,0,0, 0.5)"},
+                {"label": "Green", "value": "rgba(0,255,0, 0.5)"},
+                {"label": "Blue", "value": "rgba(0,0,255, 0.5)"},
+                {"label": "Black", "value": "rgba(0,0,0, 0.5)"},
+                {"label": "Orange", "value": "rgba(255,165,0, 0.5)"},
+                {"label": "Purple", "value": "rgba(128,0,128, 0.5)"},
+                {"label": "Yellow", "value": "rgba(255,255,0, 0.5)"},
+                {"label": "Cyan", "value": "rgba(0,255,255, 0.5)"},
+            ],
+            value="auto",
+            style={"width": "12em"}
+        ),
+
+        dcc.Checklist(
+            id="hold-spectral-checkbox",
+            options=[{"label": "Hold Spectral", "value": "hold"}],
+            value=[],
+        ),
+
+        dbc.Button(
+            "Download Selected Area",
+            href="/download-mat",
+        ),
+        dbc.Button(
+            "Download Selected Spectrals",
+            href="/download-spectrals",
+        ),
+    ]),
+
+    dbc.Row([
+        dcc.Graph(
+            id="image-graph",
+            figure=None,
+            # style={"height": "500px"}
+        ),
+        dcc.Graph(
+            id="spectral-graph",
+            figure=None,
+            style={"height": "500px"}
+        ),
+    ]),
     
-    dcc.Checklist(
-        id="hold-spectral-checkbox",
-        options=[{"label": "Hold Spectral", "value": "hold"}],
-        value=[],
-    ),
-
-    dcc.Dropdown(
-        id="line-color",
-        options=[
-            {"label": "Auto", "value": "auto"},
-            {"label": "Red", "value": "rgba(255,0,0, 0.5)"},
-            {"label": "Green", "value": "rgba(0,255,0, 0.5)"},
-            {"label": "Blue", "value": "rgba(0,0,255, 0.5)"},
-            {"label": "Black", "value": "rgba(0,0,0, 0.5)"},
-            {"label": "Orange", "value": "rgba(255,165,0, 0.5)"},
-            {"label": "Purple", "value": "rgba(128,0,128, 0.5)"},
-            {"label": "Yellow", "value": "rgba(255,255,0, 0.5)"},
-            {"label": "Cyan", "value": "rgba(0,255,255, 0.5)"},
-        ],
-        value="auto",
-        style={"margin": "10px"}
-    ),
-
-    dcc.Graph(
-        id="spectral-graph",
-        figure=None,
-        style={"width": "1000px"}
-    ),
-
-    dcc.Download(
-        id="download-mat",
-        data=None,
-    ),
-    html.A(
-        "Download Selected Area",
-        href="/download-mat",
-    ),
-    html.Br(),
-    html.A(
-        "Download Selected Spectrals",
-        href="/download-spectrals",
-    )
 ])
 
 

@@ -3,3 +3,17 @@
     stroke-width: 2 !important;
     z-index: 1000 !important; /* 确保边框在最上层 */
 }
+
+.container {
+    margin: 0.5em;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-content: center;
+}
+
+.container > * {
+    margin-left: 1em;
+}
